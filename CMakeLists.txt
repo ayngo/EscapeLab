@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.16)
 
 project(EscapeLab
@@ -20,38 +21,61 @@ set(HEADERS
     include/core/GameState.h
     include/core/GameManager.h
     include/core/MapData.h
+
     include/ui/MainWindow.h
+
     include/scenes/StartScene.h
     include/scenes/MapScene.h
+
     include/entities/Player.h
     include/entities/GameObject.h
     include/entities/Portal.h
     include/entities/Npc.h
+
+    # Dialogue Headers
+    include/Dialogue/DialogueData.h
+    include/Dialogue/DialogueManager.h
+    include/Dialogue/DialogueWidget.h
 )
 
 set(SOURCES
     src/main.cpp
+
     src/core/GameState.cpp
     src/core/GameManager.cpp
     src/core/MapData.cpp
+
     src/ui/MainWindow.cpp
+
     src/scenes/StartScene.cpp
     src/scenes/MapScene.cpp
+
     src/entities/Player.cpp
     src/entities/GameObject.cpp
     src/entities/Portal.cpp
     src/entities/Npc.cpp
+
+    # Dialogue
+    src/dialogue/DialogueData.cpp
+    src/dialogue/DialogueManager.cpp
+    src/dialogue/DialogueWidget.cpp
 )
 
 set(RESOURCES resources.qrc)
 
-add_executable(EscapeLab ${HEADERS} ${SOURCES} ${RESOURCES})
+add_executable(EscapeLab
+    ${HEADERS}
+    ${SOURCES}
+    ${RESOURCES}
+)
 
 target_include_directories(EscapeLab PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(EscapeLab PRIVATE Qt6::Widgets)
+target_link_libraries(EscapeLab PRIVATE
+    Qt6::Widgets
+)
 
 set_target_properties(EscapeLab PROPERTIES
     WIN32_EXECUTABLE OFF

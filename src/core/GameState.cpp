@@ -15,9 +15,9 @@ GameState *GameState::instance()
 GameState::GameState(QObject *parent)
     : QObject(parent)
 {
-    m_affinity[NAIWA] = 0;
-    m_affinity[DOUBAO] = 0;
-    m_affinity[PIG] = 0;
+    m_affinity[NAIWA] = 30;
+    m_affinity[DOUBAO] = 30;
+    m_affinity[PIG] = 30;
 }
 
 int GameState::affinity(const QString &npcId) const
@@ -121,18 +121,21 @@ void GameState::setSystemRepaired(bool repaired)
 
 void GameState::reset()
 {
-    m_affinity[NAIWA] = 0;
-    m_affinity[DOUBAO] = 0;
-    m_affinity[PIG] = 0;
+    m_affinity[NAIWA] = 30;
+    m_affinity[DOUBAO] = 30;
+    m_affinity[PIG] = 30;
+
     m_flags.clear();
     m_inventory.clear();
     m_clues.clear();
+
     m_totalClues = 0;
     m_systemRepaired = false;
 
-    emit affinityChanged(NAIWA, 0);
-    emit affinityChanged(DOUBAO, 0);
-    emit affinityChanged(PIG, 0);
+    emit affinityChanged(NAIWA, 30);
+    emit affinityChanged(DOUBAO, 30);
+    emit affinityChanged(PIG, 30);
+
     emit itemChanged();
     emit clueChanged(0);
 }
