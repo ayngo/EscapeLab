@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/backgrounds/campus_overview.jpg</file>
+        <file>assets/backgrounds/lab_hall_b.jpg</file>
+        <file>assets/backgrounds/nankai_front.jpg</file>
+        <file>assets/backgrounds/lab_dusk.jpg</file>
+        <file>assets/characters/naiwa_think.png</file>
+        <file>assets/characters/naiwa_stand.jpg</file>
+        <file>assets/characters/naiwa_thumbs.jpg</file>
+        <file>assets/characters/doubao_avatar.jpg</file>
+        <file>assets/characters/doubao_full.jpg</file>
+        <file>assets/characters/pig_stand.jpg</file>
+        <file>assets/characters/pig_lie.jpg</file>
+    </qresource>
+</RCC>
