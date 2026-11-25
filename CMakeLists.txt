@@ -23,6 +23,7 @@ set(HEADERS
     include/core/MapData.h
 
     include/ui/MainWindow.h
+    include/ui/InventoryPanel.h
 
     include/scenes/StartScene.h
     include/scenes/MapScene.h
@@ -48,6 +49,7 @@ set(SOURCES
     src/core/MapData.cpp
 
     src/ui/MainWindow.cpp
+    src/ui/InventoryPanel.cpp
 
     src/scenes/StartScene.cpp
     src/scenes/MapScene.cpp

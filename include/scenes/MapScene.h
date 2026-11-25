@@ -13,6 +13,7 @@ class Portal;
 class Npc;
 class PickupItem;
 class DialogueWidget;
+class InventoryPanel;
 class QGraphicsScene;
 class QTimer;
 class QResizeEvent;
@@ -63,6 +64,7 @@ private:
     QList<QRectF> solidRects() const;
     void updateNpcProximity();
     void tryInteract();
+    void autoPickup();
 
     static QString npcIdFromChar(QChar ch);
 
@@ -86,6 +88,9 @@ private:
     // 对话系统
     DialogueWidget *m_dialogueWidget = nullptr;
     bool m_dialogueActive = false;
+
+    // 背包面板
+    InventoryPanel *m_inventoryPanel = nullptr;
 };
 
 #endif

@@ -1,5 +1,6 @@
 
 #include "Dialogue/DialogueWidget.h"
+#include "ui/InventoryPanel.h"
 #include <QResizeEvent>
 
 #include "scenes/MapScene.h"
@@ -51,6 +52,13 @@ MapScene::MapScene(const MapConfig &config, QWidget *parent)
 
     connect(m_timer, &QTimer::timeout, this, &MapScene::loop);
     m_timer->start(16);
+
+    // 创建背包：左上角一个小图标，按 Tab 弹出列表
+    m_inventoryPanel = new InventoryPanel(viewport());
+    m_inventoryPanel->setParent(viewport());
+    m_inventoryPanel->show();
+    m_inventoryPanel->raise();
+    m_inventoryPanel->setGeometry(12, 12, 44, 44);
 }
 
 QString MapScene::sceneId() const
@@ -244,6 +252,13 @@ void MapScene::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    // Tab：弹出/收起背包列表（不和对话键 E 冲突）
+    if (event->key() == Qt::Key_Tab) {
+        if (m_inventoryPanel)
+            m_inventoryPanel->toggleList();
+        return;
+    }
+
     m_pressedKeys.insert(event->key());
 
     QGraphicsView::keyPressEvent(event);
@@ -326,6 +341,7 @@ void MapScene::loop()
         }
     }
 
+    autoPickup();
     updateNpcProximity();
 }
 
@@ -352,33 +368,7 @@ void MapScene::tryInteract()
 
     const QRectF pr = m_player->collisionRect();
 
-    // —— 先捡身边的道具 ——
-    PickupItem *bestItem = nullptr;
-    qreal bestItemDist = 1e9;
-
-    for (PickupItem *item : m_items) {
-        const qreal d = QLineF(
-                            pr.center(),
-                            item->logicalRect().center()
-                            ).length();
-
-        if (d < MapData::tileSize() * 1.6 && d < bestItemDist) {
-            bestItem = item;
-            bestItemDist = d;
-        }
-    }
-
-    if (bestItem) {
-        GameState::instance()->addItem(bestItem->itemId());
-        qDebug() << "捡到:" << bestItem->itemId()
-                 << "背包:" << GameState::instance()->inventory();
-        m_items.removeAll(bestItem);
-        m_scene->removeItem(bestItem);
-        delete bestItem;
-        return;
-    }
-
-    // —— 原来的 NPC 交互 ——
+    // —— E 只负责和 NPC 对话（道具改为走近自动拾取）——
     Npc *best = nullptr;
     qreal bestDist = 1e9;
 
@@ -396,6 +386,33 @@ void MapScene::tryInteract()
 
     if (best)
         best->requestInteract();
+}
+
+// 走近道具自动拾取，无需按键
+void MapScene::autoPickup()
+{
+    if (!m_player)
+        return;
+
+    const QRectF pr = m_player->collisionRect();
+
+    for (int i = m_items.size() - 1; i >= 0; --i) {
+        PickupItem *item = m_items[i];
+
+        const qreal d = QLineF(
+                            pr.center(),
+                            item->logicalRect().center()
+                            ).length();
+
+        if (d < MapData::tileSize() * 1.6) {
+            GameState::instance()->addItem(item->itemId());
+            qDebug() << "自动捡到:" << item->itemId()
+                     << "背包:" << GameState::instance()->inventory();
+            m_items.removeAt(i);
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
 }
 
 void MapScene::drawBackground(QPainter *painter, const QRectF &rect)
@@ -459,5 +476,9 @@ void MapScene::resizeEvent(QResizeEvent *event)
             viewport()->width() - margin * 2,
             height
             );
+    }
+
+    if (m_inventoryPanel) {
+        m_inventoryPanel->setGeometry(12, 12, 44, 44);
     }
 }
