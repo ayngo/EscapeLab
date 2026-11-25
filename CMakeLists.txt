@@ -31,6 +31,8 @@ set(HEADERS
     include/entities/GameObject.h
     include/entities/Portal.h
     include/entities/Npc.h
+    include/entities/PickupItem.h
+
 
     # Dialogue Headers
     include/Dialogue/DialogueData.h
@@ -54,6 +56,8 @@ set(SOURCES
     src/entities/GameObject.cpp
     src/entities/Portal.cpp
     src/entities/Npc.cpp
+    src/entities/PickupItem.cpp
+
 
     # Dialogue
     src/dialogue/DialogueData.cpp

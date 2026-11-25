@@ -11,6 +11,7 @@
 class Player;
 class Portal;
 class Npc;
+class PickupItem;
 class DialogueWidget;
 class QGraphicsScene;
 class QTimer;
@@ -72,6 +73,7 @@ private:
 
     QList<Portal *> m_portals;
     QList<Npc *> m_npcs;
+    QList<PickupItem *> m_items;
 
     QHash<QChar, QPoint> m_spawns;
 

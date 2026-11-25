@@ -9,6 +9,9 @@
 #include "entities/Portal.h"
 #include "entities/Npc.h"
 #include "entities/GameObject.h"
+#include "entities/PickupItem.h"
+
+#include <QDebug>
 
 #include <QElapsedTimer>
 #include <QGraphicsScene>
@@ -103,6 +106,13 @@ void MapScene::buildWorld()
             }
             else if (ch == 'P') {
                 m_spawns['P'] = QPoint(col, row);
+            }
+            else if (ch == 'k') {
+                auto *item = new PickupItem(
+                    QStringLiteral("key_classroom"), col, row, ts
+                    );
+                m_items.append(item);
+                m_scene->addItem(item);
             }
             else if (ch.isLower()) {
                 const QString npc = npcIdFromChar(ch);
@@ -342,6 +352,33 @@ void MapScene::tryInteract()
 
     const QRectF pr = m_player->collisionRect();
 
+    // —— 先捡身边的道具 ——
+    PickupItem *bestItem = nullptr;
+    qreal bestItemDist = 1e9;
+
+    for (PickupItem *item : m_items) {
+        const qreal d = QLineF(
+                            pr.center(),
+                            item->logicalRect().center()
+                            ).length();
+
+        if (d < MapData::tileSize() * 1.6 && d < bestItemDist) {
+            bestItem = item;
+            bestItemDist = d;
+        }
+    }
+
+    if (bestItem) {
+        GameState::instance()->addItem(bestItem->itemId());
+        qDebug() << "捡到:" << bestItem->itemId()
+                 << "背包:" << GameState::instance()->inventory();
+        m_items.removeAll(bestItem);
+        m_scene->removeItem(bestItem);
+        delete bestItem;
+        return;
+    }
+
+    // —— 原来的 NPC 交互 ——
     Npc *best = nullptr;
     qreal bestDist = 1e9;
 
