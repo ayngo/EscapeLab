@@ -17,6 +17,7 @@ class InventoryPanel;
 class ToastTip;
 class Terminal;
 class PasswordPanel;
+class EndingPanel;
 class QGraphicsScene;
 class QTimer;
 class QResizeEvent;
@@ -80,6 +81,15 @@ private:
     /** 密码正确后：标记系统已修复并提示。 */
     void onSystemRepaired();
 
+    /** 走近猪按 F：投喂饼干（成员 C，独立于对话，不改动成员 B 逻辑）。 */
+    void tryFeedPig();
+
+    /** 按 R：查看背包里的隐藏实验记录（成员 C）。 */
+    void tryReadRecord();
+
+    /** 出口场景踩终点 S：判定结局并弹出结局面板（成员 C，第四阶段）。 */
+    void tryExitEnding();
+
     static QString npcIdFromChar(QChar ch);
 
     MapConfig m_config;
@@ -109,11 +119,19 @@ private:
     // 屏幕提示条（成员 C）
     ToastTip *m_toast = nullptr;
     int m_doorHintCooldown = 0;
+    int m_feedCooldown = 0;
 
     // 系统修复终端 + 密码面板（成员 C）
     Terminal *m_terminal = nullptr;
     PasswordPanel *m_passwordPanel = nullptr;
     bool m_passwordOpen = false;
+
+    // 喂猪后落地生成的隐藏记录（成员 C，第三阶段）
+    PickupItem *m_recordItem = nullptr;
+
+    // 结局面板（成员 C，第四阶段）
+    EndingPanel *m_endingPanel = nullptr;
+    bool m_endingShown = false;
 };
 
 #endif

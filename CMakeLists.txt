@@ -21,11 +21,13 @@ set(HEADERS
     include/core/GameState.h
     include/core/GameManager.h
     include/core/MapData.h
+    include/core/EndingJudge.h
 
     include/ui/MainWindow.h
     include/ui/InventoryPanel.h
     include/ui/ToastTip.h
     include/ui/PasswordPanel.h
+    include/ui/EndingPanel.h
 
     include/scenes/StartScene.h
     include/scenes/MapScene.h
@@ -50,11 +52,13 @@ set(SOURCES
     src/core/GameState.cpp
     src/core/GameManager.cpp
     src/core/MapData.cpp
+    src/core/EndingJudge.cpp
 
     src/ui/MainWindow.cpp
     src/ui/InventoryPanel.cpp
     src/ui/ToastTip.cpp
     src/ui/PasswordPanel.cpp
+    src/ui/EndingPanel.cpp
 
     src/scenes/StartScene.cpp
     src/scenes/MapScene.cpp

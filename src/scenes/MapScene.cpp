@@ -3,6 +3,8 @@
 #include "ui/InventoryPanel.h"
 #include "ui/ToastTip.h"
 #include "ui/PasswordPanel.h"
+#include "ui/EndingPanel.h"
+#include "core/EndingJudge.h"
 #include "entities/Terminal.h"
 #include <QResizeEvent>
 
@@ -77,6 +79,11 @@ MapScene::MapScene(const MapConfig &config, QWidget *parent)
                 m_passwordOpen = false;
                 m_passwordPanel->hide();
             });
+
+    // 结局面板（成员 C，第四阶段）：全屏遮罩，先隐藏
+    m_endingPanel = new EndingPanel(viewport());
+    m_endingPanel->setParent(viewport());
+    m_endingPanel->hide();
 }
 
 QString MapScene::sceneId() const
@@ -148,10 +155,22 @@ void MapScene::buildWorld()
                 m_items.append(item);
                 m_scene->addItem(item);
             }
+            else if (ch == 'c') {
+                // 饼干（成员 C，第二阶段）：喂给猪换线索
+                auto *item = new PickupItem(
+                    QStringLiteral("cookie"), col, row, ts
+                    );
+                m_items.append(item);
+                m_scene->addItem(item);
+            }
             else if (ch == 'm') {
                 // 系统修复终端（成员 C）：走近按 E 弹出密码框
                 m_terminal = new Terminal(col, row, ts);
                 m_scene->addItem(m_terminal);
+            }
+            else if (ch == 'S') {
+                // 出口场景终点空地标记（成员 C，第四阶段，方案 A）
+                m_spawns['S'] = QPoint(col, row);
             }
             else if (ch.isLower()) {
                 const QString npc = npcIdFromChar(ch);
@@ -289,6 +308,18 @@ void MapScene::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    // F：投喂饼干给猪（成员 C，独立按键，不占用对话 E）
+    if (event->key() == Qt::Key_F) {
+        tryFeedPig();
+        return;
+    }
+
+    // R：查看隐藏实验记录（成员 C，第三阶段）
+    if (event->key() == Qt::Key_R) {
+        tryReadRecord();
+        return;
+    }
+
     // Tab：弹出/收起背包列表（不和对话键 E 冲突）
     if (event->key() == Qt::Key_Tab) {
         if (m_inventoryPanel)
@@ -365,6 +396,9 @@ void MapScene::loop()
     if (m_doorHintCooldown > 0)
         --m_doorHintCooldown;
 
+    if (m_feedCooldown > 0)
+        --m_feedCooldown;
+
     if (m_portalCooldown == 0) {
         const QRectF pr = m_player->collisionRect();
 
@@ -387,6 +421,9 @@ void MapScene::loop()
 
     autoPickup();
     updateNpcProximity();
+
+    // 第四阶段：出口场景踩到终点 S 才判定结局（方案 A）
+    tryExitEnding();
 }
 
 bool MapScene::tryDoor(Portal *portal)
@@ -487,9 +524,133 @@ void MapScene::onSystemRepaired()
     m_toast->showMessage(QStringLiteral("系统修复成功！封锁已解除"));
 }
 
-// 走近道具自动拾取，无需按键
-void MapScene::autoPickup()
+void MapScene::tryFeedPig()
 {
+    if (m_dialogueActive || m_passwordOpen)
+        return;
+
+    // 找最近的猪
+    Npc *pig = nullptr;
+    qreal bestDist = 1e9;
+    const QRectF pr = m_player->collisionRect();
+
+    for (Npc *npc : m_npcs) {
+        if (npc->npcId() != GameState::PIG)
+            continue;
+
+        const qreal d = QLineF(
+                            pr.center(),
+                            npc->sceneBoundingRect().center()
+                            ).length();
+
+        if (d < MapData::tileSize() * 1.8 && d < bestDist) {
+            pig = npc;
+            bestDist = d;
+        }
+    }
+
+    if (!pig)
+        return; // 没靠近猪，不打扰
+
+    // 已喂过：避免重复消耗
+    if (GameState::instance()->hasFlag(QStringLiteral("pig_fed"))) {
+        if (m_feedCooldown == 0) {
+            m_toast->showMessage(QStringLiteral("猪已经吃饱了"));
+            m_feedCooldown = 90;
+        }
+        return;
+    }
+
+    // 没有饼干
+    if (!GameState::instance()->hasItem(QStringLiteral("cookie"))) {
+        if (m_feedCooldown == 0) {
+            m_toast->showMessage(QStringLiteral("身上没有饼干，没法喂"));
+            m_feedCooldown = 90;
+        }
+        return;
+    }
+
+    // 投喂成功：消耗饼干，打标记，记一条线索（具体线索内容后续与成员 B 对齐）
+    GameState::instance()->removeItem(QStringLiteral("cookie"));
+    GameState::instance()->setFlag(QStringLiteral("pig_fed"));
+    GameState::instance()->addClue(QStringLiteral("pig_clue"));
+
+    // 第三阶段：猪想起了什么，在它旁边掉落一份隐藏实验记录，走近可拾取
+    if (!m_recordItem) {
+        const int ts = MapData::tileSize();
+        const QPointF pc = pig->sceneBoundingRect().center();
+        const int col = qBound(1, static_cast<int>(pc.x() / ts) + 1,
+                              m_config.tiles.first().size() - 2);
+        const int row = qBound(1, static_cast<int>(pc.y() / ts),
+                               m_config.tiles.size() - 2);
+
+        m_recordItem = new PickupItem(
+            QStringLiteral("hidden_record"), col, row, ts
+            );
+        m_items.append(m_recordItem);
+        m_scene->addItem(m_recordItem);
+    }
+
+    m_toast->showMessage(QStringLiteral("你把饼干喂给了猪，它似乎想起了什么，掉出一份记录"));
+    m_feedCooldown = 90;
+}
+
+// 按 R：查看背包里的隐藏实验记录（成员 C，第三阶段）
+void MapScene::tryReadRecord()
+{
+    if (m_dialogueActive || m_passwordOpen)
+        return;
+
+    if (!GameState::instance()->hasItem(QStringLiteral("hidden_record"))) {
+        m_toast->showMessage(QStringLiteral("背包里没有隐藏记录"));
+        return;
+    }
+
+    m_toast->showMessage(
+        QStringLiteral("隐藏实验记录：实验楼的封锁并非故障，而是一套存在 Bug 的自动实训验收程序。它误判项目未完成，才把整栋楼锁了起来。"),
+        9000
+        );
+}
+
+// 出口场景踩终点 S：判定结局并弹出结局面板（成员 C，第四阶段，方案 A）
+void MapScene::tryExitEnding()
+{
+    if (m_endingShown)
+        return;
+
+    // 只在出口场景触发
+    if (m_config.id != SceneId::Exit)
+        return;
+
+    // S 是地图里的终点空地标记，buildWorld 已把它收进 m_spawns
+    if (!m_spawns.contains('S'))
+        return;
+
+    const int ts = MapData::tileSize();
+    const QPoint cell = m_spawns.value('S');
+    const QRectF targetRect(
+        cell.x() * ts, cell.y() * ts, ts, ts
+        );
+
+    const QRectF pr = m_player->collisionRect();
+
+    if (!pr.intersects(targetRect))
+        return;
+
+    m_endingShown = true;
+
+    const EndingJudge::EndingType type = EndingJudge::judge();
+
+    // 弹结局面板并停住玩家操作
+    m_pressedKeys.clear();
+    if (m_player)
+        m_player->setMovement(0, 0);
+
+    m_endingPanel->showEnding(type);
+}
+
+// 走近道具自动拾取，无需按键
+void MapScene::autoPickup(){
     if (!m_player)
         return;
 
