@@ -14,6 +14,9 @@ class Npc;
 class PickupItem;
 class DialogueWidget;
 class InventoryPanel;
+class ToastTip;
+class Terminal;
+class PasswordPanel;
 class QGraphicsScene;
 class QTimer;
 class QResizeEvent;
@@ -66,6 +69,17 @@ private:
     void tryInteract();
     void autoPickup();
 
+    /**
+     * @brief 检查某扇门能否通行（成员 C 的门禁判定）。
+     * @return true 放行（可传送）；false 拦住（已弹提示，不传送）。
+     */
+    bool tryDoor(Portal *portal);
+
+    /** 走近终端按 E：打开密码面板（成员 C）。 */
+    void tryTerminal();
+    /** 密码正确后：标记系统已修复并提示。 */
+    void onSystemRepaired();
+
     static QString npcIdFromChar(QChar ch);
 
     MapConfig m_config;
@@ -91,6 +105,15 @@ private:
 
     // 背包面板
     InventoryPanel *m_inventoryPanel = nullptr;
+
+    // 屏幕提示条（成员 C）
+    ToastTip *m_toast = nullptr;
+    int m_doorHintCooldown = 0;
+
+    // 系统修复终端 + 密码面板（成员 C）
+    Terminal *m_terminal = nullptr;
+    PasswordPanel *m_passwordPanel = nullptr;
+    bool m_passwordOpen = false;
 };
 
 #endif

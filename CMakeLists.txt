@@ -24,6 +24,8 @@ set(HEADERS
 
     include/ui/MainWindow.h
     include/ui/InventoryPanel.h
+    include/ui/ToastTip.h
+    include/ui/PasswordPanel.h
 
     include/scenes/StartScene.h
     include/scenes/MapScene.h
@@ -33,6 +35,7 @@ set(HEADERS
     include/entities/Portal.h
     include/entities/Npc.h
     include/entities/PickupItem.h
+    include/entities/Terminal.h
 
 
     # Dialogue Headers
@@ -50,6 +53,8 @@ set(SOURCES
 
     src/ui/MainWindow.cpp
     src/ui/InventoryPanel.cpp
+    src/ui/ToastTip.cpp
+    src/ui/PasswordPanel.cpp
 
     src/scenes/StartScene.cpp
     src/scenes/MapScene.cpp
@@ -59,6 +64,7 @@ set(SOURCES
     src/entities/Portal.cpp
     src/entities/Npc.cpp
     src/entities/PickupItem.cpp
+    src/entities/Terminal.cpp
 
 
     # Dialogue

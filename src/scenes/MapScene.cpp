@@ -1,6 +1,9 @@
 
 #include "Dialogue/DialogueWidget.h"
 #include "ui/InventoryPanel.h"
+#include "ui/ToastTip.h"
+#include "ui/PasswordPanel.h"
+#include "entities/Terminal.h"
 #include <QResizeEvent>
 
 #include "scenes/MapScene.h"
@@ -59,6 +62,21 @@ MapScene::MapScene(const MapConfig &config, QWidget *parent)
     m_inventoryPanel->show();
     m_inventoryPanel->raise();
     m_inventoryPanel->setGeometry(12, 12, 44, 44);
+
+    // 屏幕中央临时提示条（开门失败等反馈）
+    m_toast = new ToastTip(viewport());
+    m_toast->setParent(viewport());
+
+    // 系统修复密码面板（成员 C）
+    m_passwordPanel = new PasswordPanel(viewport());
+    m_passwordPanel->setParent(viewport());
+    connect(m_passwordPanel, &PasswordPanel::repaired,
+            this, &MapScene::onSystemRepaired);
+    connect(m_passwordPanel, &PasswordPanel::closed,
+            this, [this]() {
+                m_passwordOpen = false;
+                m_passwordPanel->hide();
+            });
 }
 
 QString MapScene::sceneId() const
@@ -121,6 +139,19 @@ void MapScene::buildWorld()
                     );
                 m_items.append(item);
                 m_scene->addItem(item);
+            }
+            else if (ch == 'o') {
+                // 密码纸条（成员 C，第二阶段）
+                auto *item = new PickupItem(
+                    QStringLiteral("lab_password_note"), col, row, ts
+                    );
+                m_items.append(item);
+                m_scene->addItem(item);
+            }
+            else if (ch == 'm') {
+                // 系统修复终端（成员 C）：走近按 E 弹出密码框
+                m_terminal = new Terminal(col, row, ts);
+                m_scene->addItem(m_terminal);
             }
             else if (ch.isLower()) {
                 const QString npc = npcIdFromChar(ch);
@@ -247,6 +278,12 @@ void MapScene::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    // 密码面板打开时，键盘交给输入框，不处理移动/快捷键
+    if (m_passwordOpen) {
+        QGraphicsView::keyPressEvent(event);
+        return;
+    }
+
     if (event->key() == Qt::Key_E) {
         tryInteract();
         return;
@@ -274,7 +311,7 @@ void MapScene::keyReleaseEvent(QKeyEvent *event)
 
 void MapScene::loop()
 {
-    if (m_dialogueActive) {
+    if (m_dialogueActive || m_passwordOpen) {
         m_pressedKeys.clear();
 
         if (m_player)
@@ -325,11 +362,18 @@ void MapScene::loop()
     if (m_portalCooldown > 0)
         --m_portalCooldown;
 
+    if (m_doorHintCooldown > 0)
+        --m_doorHintCooldown;
+
     if (m_portalCooldown == 0) {
         const QRectF pr = m_player->collisionRect();
 
         for (Portal *portal : m_portals) {
             if (pr.intersects(portal->sceneBoundingRect())) {
+                // 成员 C：门禁判定，不放行就不传送
+                if (!tryDoor(portal))
+                    break;
+
                 emit portalRequested(
                     portal->targetScene(),
                     portal->spawnChar()
@@ -343,6 +387,28 @@ void MapScene::loop()
 
     autoPickup();
     updateNpcProximity();
+}
+
+bool MapScene::tryDoor(Portal *portal)
+{
+    // 成员 C 门禁：只有「教室 -> 走廊」的 A 门需要门禁卡，其余门直接放行
+    const bool lockedDoor =
+        m_config.id == SceneId::Classroom &&
+        portal->targetScene() == SceneId::Hallway;
+
+    if (!lockedDoor)
+        return true;
+
+    if (GameState::instance()->hasItem(QStringLiteral("key_classroom")))
+        return true;
+
+    // 没卡：拦住，弹一次提示，短冷却避免每帧重复弹
+    if (m_doorHintCooldown == 0) {
+        m_toast->showMessage(QStringLiteral("门锁着，需要门禁卡"));
+        m_doorHintCooldown = 90; // 约 1.5 秒
+    }
+
+    return false;
 }
 
 void MapScene::updateNpcProximity()
@@ -363,10 +429,23 @@ void MapScene::updateNpcProximity()
 
 void MapScene::tryInteract()
 {
-    if (m_dialogueActive)
+    if (m_dialogueActive || m_passwordOpen)
         return;
 
     const QRectF pr = m_player->collisionRect();
+
+    // 先看是否走近系统修复终端（成员 C）
+    if (m_terminal) {
+        const qreal td = QLineF(
+                             pr.center(),
+                             m_terminal->logicalRect().center()
+                             ).length();
+
+        if (td < MapData::tileSize() * 1.6) {
+            tryTerminal();
+            return;
+        }
+    }
 
     // —— E 只负责和 NPC 对话（道具改为走近自动拾取）——
     Npc *best = nullptr;
@@ -386,6 +465,26 @@ void MapScene::tryInteract()
 
     if (best)
         best->requestInteract();
+}
+
+void MapScene::tryTerminal()
+{
+    // 已修复过就不必再输
+    if (GameState::instance()->systemRepaired()) {
+        m_toast->showMessage(QStringLiteral("系统已经修复好了"));
+        return;
+    }
+
+    m_passwordOpen = true;
+    m_passwordPanel->openPanel();
+}
+
+void MapScene::onSystemRepaired()
+{
+    GameState::instance()->setSystemRepaired(true);
+    m_passwordPanel->hide();
+    m_passwordOpen = false;
+    m_toast->showMessage(QStringLiteral("系统修复成功！封锁已解除"));
 }
 
 // 走近道具自动拾取，无需按键
@@ -480,5 +579,17 @@ void MapScene::resizeEvent(QResizeEvent *event)
 
     if (m_inventoryPanel) {
         m_inventoryPanel->setGeometry(12, 12, 44, 44);
+    }
+
+    if (m_toast) {
+        // 顶部水平居中，距顶 60px
+        const int x = (viewport()->width() - m_toast->width()) / 2;
+        m_toast->move(qMax(0, x), 60);
+    }
+
+    if (m_passwordPanel) {
+        const int x = (viewport()->width() - m_passwordPanel->width()) / 2;
+        const int y = (viewport()->height() - m_passwordPanel->height()) / 2;
+        m_passwordPanel->move(qMax(0, x), qMax(0, y));
     }
 }
