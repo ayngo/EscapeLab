@@ -595,19 +595,38 @@ void MapScene::tryFeedPig()
     m_feedCooldown = 90;
 }
 
-// 按 R：查看背包里的隐藏实验记录（成员 C，第三阶段）
+// 按 R：查看背包里的密码纸条 / 隐藏实验记录（成员 C）
+// 身上有密码纸条时先看纸条上的循环代码（线索：循环终止条件即密码）；
+// 没有纸条才看喂猪得到的隐藏记录。
 void MapScene::tryReadRecord()
 {
     if (m_dialogueActive || m_passwordOpen)
         return;
 
+    // 优先查看密码纸条：上面只印着一段验收程序的 for 循环代码，
+    // 纸条本身不提示答案；玩家在与豆包对话后，由豆包提醒“检查循环终止条件”，
+    // 再自己回头看纸条、从循环条件推出管理员密码。
+    if (GameState::instance()->hasItem(QStringLiteral("lab_password_note"))) {
+        m_toast->showMessage(
+            QStringLiteral(
+                "密码纸条（管理员修复备忘）：\n"
+                "// 自动验收程序源码片段\n"
+                "for (int i = 0; i < 2024; i++) {\n"
+                "    runAutoCheck();\n"
+                "}"
+                ),
+            12000
+            );
+        return;
+    }
+
     if (!GameState::instance()->hasItem(QStringLiteral("hidden_record"))) {
-        m_toast->showMessage(QStringLiteral("背包里没有隐藏记录"));
+        m_toast->showMessage(QStringLiteral("背包里没有可查看的记录"));
         return;
     }
 
     m_toast->showMessage(
-        QStringLiteral("隐藏实验记录：实验楼的封锁并非故障，而是一套存在 Bug 的自动实训验收程序。它误判项目未完成，才把整栋楼锁了起来。"),
+        QStringLiteral("隐藏实验记录：\n实验楼的封锁并非故障，而是一套存在 Bug 的自动实训验收程序。\n它误判项目未完成，才把整栋楼锁了起来。"),
         9000
         );
 }
